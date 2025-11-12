@@ -68,11 +68,10 @@ class Board:
     
     def __str__(self):
         o = ""
-        for i in self.matrix.get_matrix():
-            o += "[ "
-            for j in i:
-                o += str(j) + " "
-            o += "]\n"
+        m = self.matrix.get_matrix()
+        max_len = max(len(str(x)) for row in m for x in row)
+        for row in m:
+            o += "[ " + " ".join(f"{str(x):>{max_len}}" for x in row) + " ]\n"
         return o
 
 
