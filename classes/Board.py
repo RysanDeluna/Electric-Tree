@@ -2,18 +2,29 @@ from enum import Enum
 import random
 
 
-def pick_random(items: list|dict, weights=[]) -> Enum:
-    # Using roulette wheel selection
-    ws = sum(items.values()) if len(weights) == 0 else sum(weights)
-    r  = random.random()
-    if len(weights) == 0:  # Dealing with dict 
-        for k, w in items.items():
-            if r < w: return k
-            r -= w
+def update_growth_chance(chances: dict, impossible_keys: list) -> dict:
+    if len(impossible_keys) == 0: return chances  # nothing changes 
+    elif len(impossible_keys) == len(chances): return None
     else:
-        for i in range(len(weights)):
-            if r < weights[i]: return i
-            r -= weights[i]
+        prob = .0 
+        s = len([i for i in chances.keys() if i not in impossible_keys])
+        for item in impossible_keys:
+            if item in chances.keys():
+                prob += chances[item]
+                chances[item] = .0 
+        to_distribute = prob/s
+        for k in chances.keys():
+            if k not in impossible_keys: 
+                chances[k] += to_distribute 
+        return chances
+
+def pick_random(items: dict) -> Enum:
+    # Using roulette wheel selection
+    ws = sum(items.values()) 
+    r  = random.random()
+    for k, w in items.items():
+        if r < w: return k
+        r -= w
 
 class StateEnum(Enum): 
     DEAD = 0
@@ -64,6 +75,9 @@ class BaseCell:
         self.type = TypeEnum.NONE
 
     def update(caller):
+        """
+            Returns True or False whether it grew.
+        """
         # caller.cell_type = SeedCell  # Exemplo de como alterar o tipo de célula
         pass
 
@@ -79,8 +93,14 @@ class Cell:
         self.n = {} 
         self.count += 1
 
-    def get_neighbours(self):
-        return self.n
+    def get_neighbours(self) -> dict:
+        """
+            Return only valid neighbours, i.e. those that arent None
+        """
+        neigh = {}
+        for dir, n in self.n.items():
+            if n: neigh[dir] = n
+        return neigh 
     
     def update(self):
         self.cell_type.update(caller=self)
@@ -114,9 +134,17 @@ class SeedCell(BaseCell):
         self.type = TypeEnum.SEED 
 
     def update(caller: Cell):
-        if caller.get_state() == StateEnum.DEAD: return
-        chosen = pick_random(SeedCell.growth_chance)
+        if caller.get_state() == StateEnum.DEAD: return False
+        
+        impossible_directions = []
+        for d, n in caller.get_neighbours().items():
+            if n.get_state() == StateEnum.ALIVE and d in SeedCell.growth_chance.keys():
+                impossible_directions.append(d)
+
+        actual_gc = update_growth_chance(SeedCell.growth_chance, impossible_keys=impossible_directions)
+        chosen = pick_random(actual_gc)
         if chosen != Look.VOID:
+            if caller.n[chosen] == None: return False  # Grew outside
             caller.n[chosen].set_state(StateEnum.ALIVE)
             caller.n[chosen].cell_type = BranchCell
 
@@ -151,9 +179,6 @@ class Board:
         for i in range(self.border_offset, self.h):
             for j in range(self.border_offset, self.w):
                 self.matrix[i][j] = Cell(id=str(i)+str(j))
-                if i == self.w - 1: 
-                    self.matrix[i][j].set_state(StateEnum.ALIVE)
-                    self.matrix[i][j].cell_type = SeedCell
         
         for i in range(self.border_offset, self.h):
             for j in range(self.border_offset, self.w):
@@ -161,8 +186,8 @@ class Board:
                     if d is not Look.VOID:
                         cell =  self.matrix[i][j] 
                         if isinstance(self.matrix[i+d.value[0]][j + d.value[1]], Cell): 
-                            cell.get_neighbours()[d] = self.matrix[i + d.value[0]][j + d.value[1]]
-                        else: cell.get_neighbours()[d] = None
+                            cell.n[d] = self.matrix[i + d.value[0]][j + d.value[1]]
+                        else: cell.n[d] = None
 
     def update(self):
         for i in range(1, self.h):
@@ -181,7 +206,11 @@ class Board:
 import os
 if __name__ == "__main__":
     os.system("cls")
-    b = Board(6,6)
+    b = Board(7,7)
+    b.matrix[7][4].set_state(StateEnum.ALIVE)
+    b.matrix[7][4].cell_type = SeedCell
+    print(b)
+    b.update()
     print(b)
     b.update()
     print(b)
