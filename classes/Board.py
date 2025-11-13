@@ -1,4 +1,19 @@
 from enum import Enum
+import random
+
+
+def pick_random(items: list|dict, weights=[]) -> Enum:
+    # Using roulette wheel selection
+    ws = sum(items.values()) if len(weights) == 0 else sum(weights)
+    r  = random.random()
+    if len(weights) == 0:  # Dealing with dict 
+        for k, w in items.items():
+            if r < w: return k
+            r -= w
+    else:
+        for i in range(len(weights)):
+            if r < weights[i]: return i
+            r -= weights[i]
 
 class StateEnum(Enum): 
     DEAD = 0
@@ -6,12 +21,12 @@ class StateEnum(Enum):
 
 class TypeEnum(Enum):
     NONE = 0
-    TIP = 1
-    MID = 2
-    ROOT = 3
+    LEAF = 1
+    BRANCH = 2
+    SEED = 3
 
 class Look(Enum):
-    "Off set para observar o vizinho"
+    "Offset to look at neighbour"
     UP = -1, 0
     UPLEFT = -1, -1
     UPRIGHT = -1, 1
@@ -21,6 +36,7 @@ class Look(Enum):
     RIGHT =  0, 1 
     LEFT = 0, -1
     CENTRE = 0, 0 
+    VOID = None
 
 
 class Matrix: 
@@ -43,42 +59,37 @@ class Matrix:
     def __setitem__(self, i, v): self.matrix_[i] = v
 
 
-class SimpleCell:
+class BaseCell:
     def __init__(self):
         self.type = TypeEnum.NONE
 
-    def update(n, caller):
-        caller.cell_type = RootCell  # Exemplo de como alterar o tipo de célula
+    def update(caller):
+        # caller.cell_type = SeedCell  # Exemplo de como alterar o tipo de célula
         pass
 
     def __str__(self): return __name__
 
 
-class RootCell(SimpleCell):
-    def __init__(self):
-        super().__init__()
-        self.type = TypeEnum.ROOT 
-
-    def update(caller):
-        caller.cell_type = SimpleCell
-
-    def __str__(self): return super().__str__()
-
-
 class Cell:
-    def __init__(self, state=StateEnum.DEAD, cell_type=SimpleCell, id=None):
+    count = 0
+    def __init__(self, state=StateEnum.DEAD, cell_type=BaseCell, id=None):
         self.state_ = state
         self.cell_type = cell_type 
         self.id = id
         self.n = {} 
+        self.count += 1
 
     def get_neighbours(self):
         return self.n
     
     def update(self):
-        self.cell_type.update(self.n, caller=self)
+        self.cell_type.update(caller=self)
 
     def get_state(self): return self.state_
+    def set_state(self, state): self.state_ = state 
+    def switch_state(self):
+        if self.state_ == StateEnum.DEAD: self.state_ = StateEnum.ALIVE
+        elif self.state_ == StateEnum.ALIVE: self.state_ = StateEnum.DEAD
 
     def spy(self):
         o = ""
@@ -90,6 +101,43 @@ class Cell:
         return f"{self.state_.name}:{self.cell_type.__name__}" if not self.id else f"{self.id}:{self.state_.name}"
 
 
+class SeedCell(BaseCell):
+    growth_chance = {
+        Look.UP: 0.4,
+        Look.UPLEFT: 0.25,
+        Look.UPRIGHT: 0.25,
+        Look.VOID: 0.1
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.type = TypeEnum.SEED 
+
+    def update(caller: Cell):
+        if caller.get_state() == StateEnum.DEAD: return
+        chosen = pick_random(SeedCell.growth_chance)
+        if chosen != Look.VOID:
+            caller.n[chosen].set_state(StateEnum.ALIVE)
+            caller.n[chosen].cell_type = BranchCell
+
+
+class LeafCell(BaseCell):
+    def __init__(self):
+        super().__init__()
+        self.type = TypeEnum.LEAF
+
+    def update(caller):
+        pass
+
+class BranchCell(BaseCell):
+    def __init__(self):
+        super().__init__()
+        self.type = TypeEnum.BRANCH
+
+    def update(caller):
+        pass
+
+
 class Board:
     border_offset = 1   # How thick is the border
 
@@ -99,19 +147,22 @@ class Board:
         self.w = width + self.border_offset   # Effective width
         self.h = height + self.border_offset  # Effective height
         
-        count=0
         # populate
         for i in range(self.border_offset, self.h):
             for j in range(self.border_offset, self.w):
-                self.matrix[i][j] = Cell(id=str(count))
-                count+=1
+                self.matrix[i][j] = Cell(id=str(i)+str(j))
+                if i == self.w - 1: 
+                    self.matrix[i][j].set_state(StateEnum.ALIVE)
+                    self.matrix[i][j].cell_type = SeedCell
         
         for i in range(self.border_offset, self.h):
             for j in range(self.border_offset, self.w):
                 for d in Look: 
-                    cell =  self.matrix[i][j] 
-                    if isinstance(self.matrix[i+d.value[0]][j + d.value[1]], Cell): 
-                        cell.get_neighbours()[d] = self.matrix[i + d.value[0]][j + d.value[1]]
+                    if d is not Look.VOID:
+                        cell =  self.matrix[i][j] 
+                        if isinstance(self.matrix[i+d.value[0]][j + d.value[1]], Cell): 
+                            cell.get_neighbours()[d] = self.matrix[i + d.value[0]][j + d.value[1]]
+                        else: cell.get_neighbours()[d] = None
 
     def update(self):
         for i in range(1, self.h):
@@ -127,6 +178,10 @@ class Board:
         return o
 
 
+import os
 if __name__ == "__main__":
-    b = Board(5, 5)
+    os.system("cls")
+    b = Board(6,6)
+    print(b)
+    b.update()
     print(b)
