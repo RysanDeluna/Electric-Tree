@@ -1,6 +1,64 @@
 from enum import Enum
 import random
 
+class StateEnum(Enum): 
+    DEAD = 0
+    ALIVE = 1
+
+class TypeEnum(Enum):
+    NONE = 0
+    LEAF = 1
+    BRANCH = 2
+    SEED = 3
+
+class Direction(Enum):
+    "Offset to look at neighbour"
+    UP = -1, 0
+    UPLEFT = -1, -1
+    UPRIGHT = -1, 1
+    DOWN= 1, 0 
+    DOWNLEFT = 1, -1 
+    DOWNRIGHT = 1, 1 
+    RIGHT =  0, 1 
+    LEFT = 0, -1
+    CENTRE = 0, 0 
+    VOID = None
+
+    def __add__(self, other):
+        new_x, new_y = self.value[0] + other.value[0], self.value[1] + other.value[1]
+        if new_x > 1 or new_x < -1 or new_y > 1 or new_y < -1: return Direction(None)
+        return Direction(new_x, new_y)
+
+    def __neg__(self):
+        """ 
+            Returns the opposite direction 
+        """
+        if self.value:
+            return Direction(-self.value[0], -self.value[1])
+    
+
+
+def distance_from_cell(a: Direction|tuple, b: Direction|tuple, obs: list=[Direction.CENTRE], limits: tuple=(-1, 1)) -> dict[Direction:int]:
+    q = [(a, 0)]
+    visited = {a:0}
+    moves = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]
+
+    while len(q) > 0:
+        pos, dist = q.pop(0)
+        if pos == b: 
+            return visited
+
+        for d in moves: 
+            new_pos = pos + d
+            if new_pos == Direction.VOID: continue
+            if new_pos in obs: continue
+            if new_pos not in visited:
+                q.append((new_pos, dist + 1))
+                visited[new_pos] = dist + 1
+
+
+
+
 
 def update_growth_chance(chances: dict, impossible_keys: list) -> dict:
     if len(impossible_keys) == 0: return chances  # nothing changes 
@@ -26,28 +84,6 @@ def pick_random(items: dict) -> Enum:
         if r < w: return k
         r -= w
 
-class StateEnum(Enum): 
-    DEAD = 0
-    ALIVE = 1
-
-class TypeEnum(Enum):
-    NONE = 0
-    LEAF = 1
-    BRANCH = 2
-    SEED = 3
-
-class Look(Enum):
-    "Offset to look at neighbour"
-    UP = -1, 0
-    UPLEFT = -1, -1
-    UPRIGHT = -1, 1
-    DOWN= 1, 0 
-    DOWNLEFT = 1, -1 
-    DOWNRIGHT = 1, 1 
-    RIGHT =  0, 1 
-    LEFT = 0, -1
-    CENTRE = 0, 0 
-    VOID = None
 
 
 class Matrix: 
