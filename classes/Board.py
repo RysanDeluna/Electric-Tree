@@ -109,6 +109,7 @@ class Matrix:
 class BaseCell:
     def __init__(self):
         self.type = TypeEnum.NONE
+        self.structure = False
 
     def update(caller):
         """
@@ -127,6 +128,7 @@ class Cell:
         self.cell_type = cell_type 
         self.id = id
         self.n = {} 
+        self.generated = 0
         self.count += 1
 
     def get_neighbours(self) -> dict:
@@ -139,7 +141,7 @@ class Cell:
         return neigh 
     
     def update(self):
-        self.cell_type.update(caller=self)
+        return self.cell_type.update(caller=self)
 
     def get_state(self): return self.state_
     def set_state(self, state): self.state_ = state 
@@ -159,19 +161,22 @@ class Cell:
 
 class SeedCell(BaseCell):
     growth_chance = {
-        Look.UP: 0.4,
-        Look.UPLEFT: 0.25,
-        Look.UPRIGHT: 0.25,
-        Look.VOID: 0.1
+        Direction.UP: 0.4,
+        Direction.UPLEFT: 0.25,
+        Direction.UPRIGHT: 0.25,
+        Direction.VOID: 0.1
     }
 
     def __init__(self):
         super().__init__()
         self.type = TypeEnum.SEED 
 
-    def update(caller: Cell):
-        if caller.get_state() == StateEnum.DEAD: return False
+    def update(caller: Cell) -> bool:
+        # -- Cases when it wont do a thing -- 
+        if (caller.get_state() == StateEnum.DEAD or
+            caller.generated   >= 2) : return False
         
+        # Check the neighbouring cells for alive cells
         impossible_directions = []
         for d, n in caller.get_neighbours().items():
             if n.get_state() == StateEnum.ALIVE and d in SeedCell.growth_chance.keys():
@@ -179,10 +184,13 @@ class SeedCell(BaseCell):
 
         actual_gc = update_growth_chance(SeedCell.growth_chance, impossible_keys=impossible_directions)
         chosen = pick_random(actual_gc)
-        if chosen != Look.VOID:
+        if chosen != Direction.VOID:
             if caller.n[chosen] == None: return False  # Grew outside
             caller.n[chosen].set_state(StateEnum.ALIVE)
             caller.n[chosen].cell_type = BranchCell
+            caller.generated += 1
+            return True
+        else: return False
 
 
 class LeafCell(BaseCell):
