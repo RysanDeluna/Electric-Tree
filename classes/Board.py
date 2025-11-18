@@ -226,15 +226,7 @@ class LeafCell(BaseCell):
         self.type = TypeEnum.LEAF
 
     def update(caller):
-        pass
-
-class BranchCell(BaseCell):
-    def __init__(self):
-        super().__init__()
-        self.type = TypeEnum.BRANCH
-
-    def update(caller):
-        pass
+        if caller.get_state() == StateEnum.DEAD: return False
 
 
 class Board:
@@ -253,8 +245,8 @@ class Board:
         
         for i in range(self.border_offset, self.h):
             for j in range(self.border_offset, self.w):
-                for d in Look: 
-                    if d is not Look.VOID:
+                for d in Direction: 
+                    if d is not Direction.VOID:
                         cell =  self.matrix[i][j] 
                         if isinstance(self.matrix[i+d.value[0]][j + d.value[1]], Cell): 
                             cell.n[d] = self.matrix[i + d.value[0]][j + d.value[1]]
@@ -263,7 +255,9 @@ class Board:
     def update(self):
         for i in range(1, self.h):
             for j in range(1, self.w):
-                self.matrix[i][j].update()
+                feedback = self.matrix[i][j].update()
+                if feedback == False:
+                    print(f"Célula {str(i)+str(j)} não cresceu")
     
     def __str__(self):
         o = ""
