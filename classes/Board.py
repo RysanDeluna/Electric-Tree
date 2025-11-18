@@ -193,6 +193,33 @@ class SeedCell(BaseCell):
         else: return False
 
 
+class BranchCell(BaseCell):
+    chance_to_spawn_leaf = 0.5
+
+    def __init__(self):
+        super().__init__()
+        self.type = TypeEnum.BRANCH
+        self.structure = True
+
+    def update(caller: Cell):
+        if caller.get_state() == StateEnum.DEAD: return False
+        neighbours = caller.get_neighbours()
+
+        # Checking if it has all things to stay alive
+        supported = False 
+        for n in neighbours: 
+            if n.cell_type.structure: supported = True
+
+        if not supported: 
+            caller.set_state(StateEnum.DEAD)
+            return False   # It died :((
+
+        # Build chances dict according to its neighbourhood
+
+        
+
+
+        
 class LeafCell(BaseCell):
     def __init__(self):
         super().__init__()
